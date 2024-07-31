@@ -1,0 +1,16 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: example-validating-webhook
+webhooks:
+  - name: example.webhook.com
+    clientConfig:
+      url: "https://192.168.137.200:8080/validate"
+    rules:
+      - operations: ["*"]
+        apiGroups: ["", "rbac.authorization.k8s.io"]
+        apiVersions: ["v1"]
+        resources: ["pods", "roles", "clusterroles", "rolebindings", "clusterrolebindings"]
+    failurePolicy: Ignore
+    sideEffects: None
+    admissionReviewVersions: ["v1"]

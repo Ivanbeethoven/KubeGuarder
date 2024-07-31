@@ -1,0 +1,67 @@
+{
+  "expireTime": 3600,
+  "items": [
+    {
+      "apiGroup": "",
+      "resource": "secrets",
+      "fields": [
+        "metadata.uid",
+        "metadata.name",
+        "metadata.kind",
+        "metadata.namespace",
+        "data.*"
+      ]
+    },
+    {
+      "apiGroup": "",
+      "resource": "configmaps",
+      "fields": [
+        "metadata.uid",
+        "metadata.name",
+        "metadata.kind",
+        "metadata.namespace",
+        "data.*"
+      ]
+    },
+    {
+      "apiGroup": "",
+      "resource": "pods",
+      "fields": [
+        "metadata.uid",
+        "metadata.name",
+        "metadata.kind",
+        "metadata.namespace",
+        "status.podIP"
+      ]
+    },
+    {
+      "apiGroup": "",
+      "resource": "serviceaccounts",
+      "fields": [
+        "metadata.uid",
+        "metadata.name",
+        "metadata.namespace",
+        "metadata.kind"
+      ]
+    },
+    {
+      "apiGroup": "",
+      "resource": "clusterroles",
+      "fields": [
+        "metadata.name",
+        "metadata.kind",
+        "metadata.uid"
+      ]
+    },
+    {
+      "apiGroup": "",
+      "resource": "roles",
+      "fields": [
+        "metadata.name",
+        "metadata.kind",
+        "metadata.namespace",
+        "metadata.uid"
+      ]
+    }
+  ]
+}

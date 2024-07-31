@@ -1,0 +1,12 @@
+[Unit]
+Description=Run kubeshark tap after Kubernetes is up
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/root/code/kubeshark-service/start.sh
+Restart=on-failure
+User=root
+
+[Install]
+WantedBy=multi-user.target

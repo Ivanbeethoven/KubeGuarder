@@ -1,0 +1,862 @@
+{
+  "macros": null,
+  "rules": [
+    {
+      "id": "example-rule",
+      "group_title": "Example rule",
+      "severity": ":danger",
+      "info": "Risk description and instructions on how to mitigate it goes here",
+      "query": "MATCH \n  (s:Subject)-[:ACCESS]->(ns:Namespace)\nRETURN \n  s.kind as subject_kind,\n  s.name as subject_name,\n  COLLECT(ns.name) as namespace_names\nORDER BY \n  subject_kind, \n  subject_name, \n  namespace_names DESC\n",
+      "threshold": 2,
+      "writer": "if result.namespace_names.count >= {{threshold}}\n  \"#{result.subject_kind} #{result.subject_name} can access namespaces: #{result.namespace_names.join(', ')}\"\nend\n",
+      "disabled": true
+    },
+    {
+      "id": "subjects-with-privileged-psp-not-scoped-to-ns",
+      "group_title": "Subjects with privileged PSP access NOT scoped to a namespace (N/A for K8s version >= 1.25)",
+      "severity": ":danger",
+      "info": "Subjects below are able to run privileged containers and are NOT scoped to a particular namespace.\nReview PSP policies and limit subject's access to specific namespaces.\n",
+      "template": "privileged-psp-subjects"
+    },
+    {
+      "id": "subjects-with-open-cluster-wide-access",
+      "group_title": "Subjects with too open cluster-wide access",
+      "severity": ":danger",
+      "info": "Subjects below have URESTRICTED cluster-wide access to ALL resources (apiGroups: *, core)! This is potentially dangerous.\nReview RBAC associated with items below and limit access to required namespaces only.\n",
+      "template": "unrestricted-cluster-wide-subjects"
+    },
+    {
+      "id": "subjects-with-open-ns-level-access",
+      "group_title": "Subjects with too open namespace level access",
+      "severity": ":warning",
+      "info": "Subjects below have UNRESTRICTED access to ALL resources (apiGroups: *, core) within the scope of a namespace.\nThis might be a potential security risk. Review RBAC associated with items below and replace wildcard access with\nmore specific access rules.\n",
+      "template": "unrestricted-ns-level-subjects"
+    },
+    {
+      "id": "subjects-with-rbac-management",
+      "group_title": "Subjects with ability to manage RBAC",
+      "severity": ":warning",
+      "info": "List of Subjects able to create Roles and/or RoleBindings. This might be a potential security risk.\nReview RBAC associated with items below and consider revoking unnecessary privileges.\n",
+      "template": "rbac-managing-subjects"
+    },
+    {
+      "id": "subjects-with-non-existing-roles",
+      "group_title": "Subjects associated with non-existing roles",
+      "severity": ":warning",
+      "info": "List of Subjects with Role or ClusterRole which hasn't been defined. \nReview and check whether Role/ClusterRole should exist.\n",
+      "template": "undefined-role-subjects"
+    },
+    {
+      "id": "subjects-with-many-roles",
+      "group_title": "Subjects associated with multiple roles",
+      "severity": ":info",
+      "info": "List of Subjects associated with multiple roles. Depending on complexity this may indicate a bad RBAC design.\nConsider role aggregation.\n",
+      "template": "multiple-role-subjects",
+      "threshold": 4
+    },
+    {
+      "id": "namespaces-with-many-subjects",
+      "group_title": "Namespaces with multiple subjects",
+      "severity": ":info",
+      "info": "List of Namespaces with multiple subject access. Significant number of Subjects having access \nto a Namespace might indicate bad design or potential security risk. Review namespaces below.\n",
+      "template": "multiple-subject-namespaces",
+      "threshold": 5
+    },
+    {
+      "id": "risky-get-secrets",
+      "group_title": "Risky Roles/ClusterRoles allowing viewing specific secrets",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to view specific secrets. This can be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "secrets"
+          ],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-list-secrets",
+      "group_title": "Risky Roles/ClusterRoles allowing listing of all secrets",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to list all secrets. This can be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "secrets"
+          ],
+          "verbs": [
+            "list"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-impersonate-privileged-groups",
+      "group_title": "Risky Roles/ClusterRoles allowing to impersonate privileged groups (like 'system:masters')",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing to impersonate privileged groups. This is dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "groups"
+          ],
+          "verbs": [
+            "impersonate"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-secrets",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on secrets",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on secrets. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "secrets"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-pods",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on pods",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on pods. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "pods"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-deployments",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on deployments",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on deployments. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "deployments"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-daemonsets",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on daemonsets",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on daemonsets. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "daemonsets"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-statefulsets",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on statefulsets",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on statefulsets. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "statefulsets"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-replicationcontrollers",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on replicationcontrollers",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on replicationcontrollers. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "replicationcontrollers"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-replicasets",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on replicasets",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on replicasets. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "replicasets"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-cronjobs",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on cronjobs",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on cronjobs. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "cronjobs"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-jobs",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on jobs",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on jobs. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "jobs"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-roles",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on roles",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on roles. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "roles"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-clusterroles",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on clusterroles",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on clusterroles. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "clusterroles"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-rolebindings",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on rolebindings",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on rolebindings. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "rolebindings"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-clusterrolebindings",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on clusterrolebindings",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on clusterrolebindings. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "clusterrolebindings"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-users",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on users",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on users. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "users"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-verb-groups",
+      "group_title": "Risky Roles/ClusterRoles allowing all actions on groups",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing all actions on groups. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "groups"
+          ],
+          "verbs": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-resource-delete",
+      "group_title": "Risky Roles/ClusterRoles allowing delete action on all resources",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing delete action on all resources. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "verbs": [
+            "delete"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-resource-deletecollection",
+      "group_title": "Risky Roles/ClusterRoles allowing deletecollection action on all resources",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing deletecollection action on all resources. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "verbs": [
+            "deletecollection"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-resource-create",
+      "group_title": "Risky Roles/ClusterRoles allowing create action on all resources",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing create action on all resources. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-resource-list",
+      "group_title": "Risky Roles/ClusterRoles allowing list action on all resources",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing list action on all resources. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "verbs": [
+            "list"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-resource-get",
+      "group_title": "Risky Roles/ClusterRoles allowing get action on all resources",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing get action on all resources. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-any-resource-impersonate",
+      "group_title": "Risky Roles/ClusterRoles allowing impersonate action on all resources",
+      "severity": ":danger",
+      "info": "Roles/ClusterRoles allowing impersonate action on all resources. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "*"
+          ],
+          "verbs": [
+            "impersonate"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-deployments",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious pod",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious pod. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "deployments"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-deployments",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious pod",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious pod. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "deployments"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-daemonsets",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious daemonset",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious daemonset. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "daemonsets"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-daemonsets",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious daemonset",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious daemonset. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "daemonsets"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-statefulsets",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious statefulset",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious statefulset. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "statefulsets"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-statefulsets",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious statefulset",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious statefulset. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "statefulsets"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-replicationcontrollers",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious replicationcontroller",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious replicationcontroller. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "replicationcontrollers"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-replicationcontrollers",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious replicationcontroller",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious replicationcontroller. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "replicationcontrollers"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-replicasets",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious replicaset",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious replicaset. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "replicasets"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-replicasets",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious replicaset",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious replicaset. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "replicasets"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-jobs",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious job",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious job. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "jobs"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-jobs",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious job",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious job. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "jobs"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-cronjobs",
+      "group_title": "Risky Roles/ClusterRoles allowing to create a potentially malicious cronjob",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to create a potentially malicious cronjob. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "cronjobs"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-update-cronjobs",
+      "group_title": "Risky Roles/ClusterRoles allowing to update a potentially malicious cronjob",
+      "severity": ":warning",
+      "info": "Roles/ClusterRoles allowing to update a potentially malicious cronjob. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "cronjobs"
+          ],
+          "verbs": [
+            "update"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-rolebinding-role",
+      "group_title": "Risky Roles/ClusterRoles allowing creation of rolebinding and associate privileged role to itself",
+      "severity": ":warning",
+      "info": "Roles able to create bindings referencing roles. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "resources": [
+            "rolebindings"
+          ],
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "resources": [
+            "roles"
+          ],
+          "verbs": [
+            "bind"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-rolebinding-clusterrole",
+      "group_title": "Risky Roles/ClusterRoles allowing creation of rolebinding and associate privileged clusterrole to itself",
+      "severity": ":warning",
+      "info": "Roles able to create bindings referencing cluster roles. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "resources": [
+            "rolebindings"
+          ],
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "resources": [
+            "clusterroles"
+          ],
+          "verbs": [
+            "bind"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-create-clusterrolebinding",
+      "group_title": "Risky Roles/ClusterRoles allowing creation of clusterrolebinding",
+      "severity": ":warning",
+      "info": "Roles able to create cluster role bindings. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "apiGroups": [
+            "rbac.authorization.k8s.io"
+          ],
+          "resources": [
+            "clusterrolebindings"
+          ],
+          "verbs": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-exec-pods",
+      "group_title": "Risky Roles/ClusterRoles allowing shell on pods",
+      "severity": ":danger",
+      "info": "Roles allow exec into running container. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "pods/exec"
+          ],
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "resources": [
+            "pods"
+          ],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-attach-pods",
+      "group_title": "Risky Roles/ClusterRoles allowing attaching pod and view all its logs in realtime",
+      "severity": ":danger",
+      "info": "Roles allow attaching to a running container. This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "pods/attach"
+          ],
+          "verbs": [
+            "create"
+          ]
+        },
+        {
+          "resources": [
+            "pods"
+          ],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risky-add-rolebinding",
+      "group_title": "Risky Roles/ClusterRoles allowing users in a rolebinding to add other users to their rolebindings",
+      "severity": ":warning",
+      "info": "This might be dangerous. Review listed Roles!",
+      "template": "risky-role",
+      "match_rules": [
+        {
+          "resources": [
+            "rolebindings"
+          ],
+          "verbs": [
+            "patch",
+            "get"
+          ]
+        }
+      ]
+    }
+  ]
+}

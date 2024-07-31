@@ -1,0 +1,19 @@
+
+[Unit]
+Description=WebHook-Admission-Controller
+After=syslog.target
+After=network.target
+After=redis.service
+Requires=redis.service
+
+[Service]
+User=root
+ExecStart=/usr/bin/java -jar /root/code/jar/webhook-admission-controller-0.0.1-SNAPSHOT.jar
+SuccessExitStatus=143
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

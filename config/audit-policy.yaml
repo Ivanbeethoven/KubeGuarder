@@ -1,0 +1,23 @@
+apiVersion: audit.k8s.io/v1 # 这是必填项。
+kind: Policy
+# 不要在 RequestReceived 阶段为任何请求生成审计事件。
+omitStages:
+  - "RequestReceived"
+rules:
+  # 记录所有资源请求。
+  - level: RequestResponse
+    users: 
+    - "system:serviceaccount:test:test-sa"
+    - "system:serviceaccount:test-2:test-sa-2"
+    - "system:serviceaccount:test-3:test-sa-3"
+    - "system:serviceaccount:test-4:test-sa-4"
+    - "system:serviceaccount:test-4:test-sa-4-1"
+    - "system:serviceaccount:test-5:test-sa-5"
+    - "system:serviceaccount:monitoring:prometheus-k8s"
+
+  # 不要在日志中记录非资源 URL 路径的请求。
+  - level: None
+    nonResourceURLs:
+    - "/api*" # 通配符匹配。
+    - "/version"
+    - "/metrics"

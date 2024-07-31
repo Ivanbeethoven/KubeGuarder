@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Config
+clusters:
+  - name: audit-webhook
+    cluster:
+      server: http://192.168.137.200:8080/webhook/event
+      # 这里的 URL 应该指向您的 Spring Boot 应用的审计 Webhook 端点
+users:
+  - name: kube-apiserver
+current-context: webhook
+contexts:
+  - context:
+      cluster: audit-webhook
+      user: kube-apiserver
+    name: webhook
