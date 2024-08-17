@@ -6,6 +6,9 @@ import com.nanxing.kubeguard.entity.redundant.RedundantReport;
 import com.nanxing.kubeguard.entity.redundant.ResourceAuth;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.ListOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -23,7 +26,8 @@ import java.util.function.Predicate;
 
 @Service
 public class RedundantService {
-
+    @Autowired
+    private RedisTemplate redisTemplate;
     public RedundantReport getResult(){
         List<String> lines = this.parseResultFile();
         List<AccountWithAuth> accountWithAuthList = new ArrayList<>();
@@ -96,4 +100,18 @@ public class RedundantService {
         }
         return lines;
     }
+    
+    private final String redisListKey = "redundant-predictions";
+    public List<String> getLatestPredictions(int count) {
+        ListOperations<String, String> listOps = redisTemplate.opsForList();
+        // 获取列表的长度
+        Long size = listOps.size(redisListKey);
+        // 计算开始和结束索引
+        long start = Math.max(size - count, 0);
+        long end = size - 1;
+
+        // 获取最新的 count 条记录
+        return listOps.range(redisListKey, start, end);
+    }
+    
 }
